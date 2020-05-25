@@ -74,7 +74,7 @@ pub fn handle_player_block_placement(
                 interaction_handler.handle_interaction(game, world, player, window_id);
             } else {
                 // Try to place a block
-                handle_block_placement(game, world, player, target_block.kind(), packet);
+                handle_block_placement(game, world, player, target_block, packet);
             }
         });
 }
@@ -83,7 +83,7 @@ pub fn handle_block_placement(
     game: &mut Game,
     world: &mut World,
     player: Entity,
-    target_block_kind: BlockKind,
+    target_block: BlockId,
     packet: PlayerBlockPlacement,
 ) {
     let gamemode = *world.get::<Gamemode>(player);
@@ -104,12 +104,15 @@ pub fn handle_block_placement(
 
     if !handle_slab_placement(game, world, block, packet.location, packet.face) {
         // TODO: waterlogged blocks, more
-        let pos = match target_block_kind {
-            BlockKind::Grass | BlockKind::TallGrass | BlockKind::Water | BlockKind::Lava => {
-                packet.location
-            }
-            _ => packet.location + packet.face.placement_offset(),
+        let pos = if target_block.is_replaceable() {
+            packet.location
+        } else {
+            packet.location + packet.face.placement_offset()
         };
+
+        if !game.block_at(pos).unwrap().is_replaceable() {
+            return;
+        }
 
         let block = update_block_state_for_placement(
             game,
